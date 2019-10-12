@@ -211,7 +211,14 @@ impl Context {
         );
         // Dear ImGui implicitly sets the current context during igCreateContext if the current
         // context doesn't exist
-        let raw = unsafe { sys::igCreateContext(ptr::null_mut()) };
+        let shared_font_atlas_raw = match shared_font_atlas.as_ref() {
+            Some(atlas) => {
+                let guard = atlas.borrow();
+                guard.0
+            },
+            None => ptr::null_mut(),
+        };
+        let raw = unsafe { sys::igCreateContext(shared_font_atlas_raw)};
         Context {
             raw,
             shared_font_atlas,

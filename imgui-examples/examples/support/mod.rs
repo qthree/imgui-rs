@@ -29,25 +29,15 @@ pub fn init(title: &str) -> System {
     let display =
         Display::new(builder, context, &events_loop).expect("Failed to initialize display");
 
-    let mut imgui = Context::create();
-    imgui.set_ini_filename(None);
-
-    if let Some(backend) = clipboard::init() {
-        imgui.set_clipboard_backend(Box::new(backend));
-    } else {
-        eprintln!("Failed to initialize clipboard");
-    }
-
-    let mut platform = WinitPlatform::init(&mut imgui);
-    {
+    let hidpi_factor = {
         let gl_window = display.gl_window();
         let window = gl_window.window();
-        platform.attach_window(imgui.io_mut(), &window, HiDpiMode::Rounded);
-    }
+        window.get_hidpi_factor()
+    };
 
-    let hidpi_factor = platform.hidpi_factor();
     let font_size = (13.0 * hidpi_factor) as f32;
-    imgui.fonts().add_font(&[
+    let mut atlas = imgui::SharedFontAtlas::create();
+    atlas.add_font(&[
         FontSource::DefaultFontData {
             config: Some(FontConfig {
                 size_pixels: font_size,
@@ -64,6 +54,23 @@ pub fn init(title: &str) -> System {
             }),
         },
     ]);
+
+    use std::{rc::Rc, cell::RefCell};
+    let mut imgui = Context::create_with_shared_font_atlas(Rc::new(RefCell::new(atlas)));
+    imgui.set_ini_filename(None);
+
+    if let Some(backend) = clipboard::init() {
+        imgui.set_clipboard_backend(Box::new(backend));
+    } else {
+        eprintln!("Failed to initialize clipboard");
+    }
+
+    let mut platform = WinitPlatform::init(&mut imgui);
+    {
+        let gl_window = display.gl_window();
+        let window = gl_window.window();
+        platform.attach_window(imgui.io_mut(), &window, HiDpiMode::Rounded);
+    }
 
     imgui.io_mut().font_global_scale = (1.0 / hidpi_factor) as f32;
 
